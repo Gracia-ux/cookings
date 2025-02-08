@@ -9,9 +9,7 @@ RUN apt-get update && apt-get install -y \
     libpng-dev \
     libjpeg-dev \
     libfreetype6-dev \
-    && docker-php-ext-install zip pdo pdo_mysql
-
-# RUN pecl install grpc
+    && docker-php-ext-install zip pdo pdo_mysql pdo_pgsql
 
 # Install Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
@@ -25,29 +23,14 @@ COPY . /app/.
 # Ensure necessary directories exist
 RUN mkdir -p /var/log/nginx && mkdir -p /var/cache/nginx
 
-# Install dependencies
-#RUN composer install --ignore-platform-reqs
+# Install production dependencies
+RUN composer install --no-dev --optimize-autoloader
 
-# RUN composer require doctrine/dbal
-
-RUN composer require symfony/serializer
-
-RUN composer require api
-
-RUN composer require google/auth guzzlehttp/guzzle
-
-RUN docker-php-ext-install pdo_pgsql
-
-RUN php bin/console cache:clear
-
-RUN php bin/console cache:clear --env=prod
-
-# Set the port Symfony will use
-ENV PORT=8000
+# Clear Symfony cache
+RUN php bin/console cache:clear --no-warmup --env=prod
 
 # Expose the application's port
 EXPOSE 8000
 
-# Start the Symfony server
+# Start the Symfony server (for development, consider using Nginx/Apache in production)
 CMD ["php", "-S", "0.0.0.0:8000", "-t", "public"]
-# CMD ["symfony", "server:start", "--no-tls", "--port=8080"]
