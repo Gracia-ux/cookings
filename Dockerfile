@@ -1,36 +1,53 @@
-# Utilisation de l'image officielle PHP avec Apache
-FROM php:8.1-apache
+FROM php:8.2-cli
 
-# Installer les extensions PHP nécessaires (ici pour Symfony)
+# Install required system dependencies
 RUN apt-get update && apt-get install -y \
+    unzip \
+    git \
+    libzip-dev \
+    libpq-dev \
     libpng-dev \
     libjpeg-dev \
     libfreetype6-dev \
-    libicu-dev \
-    libxml2-dev \
-    zlib1g-dev \
-    git \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install gd pdo pdo_mysql intl xml zip \
-    && a2enmod rewrite
+    && docker-php-ext-install zip pdo pdo_mysql
 
-# Installer Composer (gestionnaire de dépendances PHP)
+# RUN pecl install grpc
+
+# Install Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-# Définir le répertoire de travail
-WORKDIR /var/www/html
+# Set working directory
+WORKDIR /app
 
-# Copier les fichiers de ton projet dans le conteneur
-COPY . .
+# Copy application files
+COPY . /app/.
 
-# Installer les dépendances de Symfony via Composer
-RUN composer install --no-dev --optimize-autoloader
+# Ensure necessary directories exist
+RUN mkdir -p /var/log/nginx && mkdir -p /var/cache/nginx
 
-# Configurer Apache pour que Symfony fonctionne correctement
-COPY .docker/vhost.conf /etc/apache2/sites-available/000-default.conf
+# Install dependencies
+#RUN composer install --ignore-platform-reqs
 
-# Exposer le port 80 pour l'application web
-EXPOSE 80
+# RUN composer require doctrine/dbal
 
-# Démarrer Apache dans le conteneur
-CMD ["apache2-foreground"]
+RUN composer require symfony/serializer
+
+RUN composer require api
+
+RUN composer require google/auth guzzlehttp/guzzle
+
+RUN docker-php-ext-install pdo_pgsql
+
+RUN php bin/console cache:clear
+
+RUN php bin/console cache:clear --env=prod
+
+# Set the port Symfony will use
+ENV PORT=8000
+
+# Expose the application's port
+EXPOSE 8000
+
+# Start the Symfony server
+CMD ["php", "-S", "0.0.0.0:8000", "-t", "public"]
+# CMD ["symfony", "server:start", "--no-tls", "--port=8080"]
